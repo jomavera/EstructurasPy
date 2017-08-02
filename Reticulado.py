@@ -65,13 +65,20 @@ class Reticulado():
                     self.R=temp
                 elif file=='F.csv':
                     temp=np.genfromtxt(filename, delimiter=';')
-                    np.resize(self.F,(temp.shape[0],temp.shape[1]))
-                    self.F=temp
+                    try:
+                        np.resize(self.F,(temp.shape[0],temp.shape[1]))
+                        self.F=temp
+                        self.num_fuerzas=self.F.shape[0]
+                    except:
+                        np.resize(self.F,(1,temp.shape[0]))
+                        self.F=temp.reshape((1,self.F.shape[1]))
+                        self.num_fuerzas=1
                 elif file=='dT.csv':
                     temp=np.genfromtxt(filename, delimiter=';',dtype=np.float_)
                     np.resize(self.dT,(temp.shape[0],))
                     self.dT=temp
-
+        self.num_nodos=self.C.shape[0]
+        self.num_elem=self.E.shape[0]
 
     def get_summary(self):
         df_C=pd.DataFrame(data=self.C,
@@ -93,7 +100,7 @@ class Reticulado():
                           index=np.linspace(1,self.dT.shape[0],self.dT.shape[0]).astype(int),
                           columns=['dT'])
 
-    def rigidez(self):
+    def analizar(self):
         """ Retorna
             -------------------------------------------------------
             S=Matriz de esfuerzos en elementos [SF, ST] ; SF=Por fuerzas externas,
@@ -207,11 +214,19 @@ class Reticulado():
 
 
         #Se construye vector de reacciones
-        reacciones=np.zeros((3*self.num_nodos,1))
+        if self.dim==2:
+            reacciones=np.zeros((2*self.num_nodos,1))
 
-        for f in range(self.F.shape[0]):
-            nc=self.F[f,0].astype(int)-1
-            reacciones[(3*(nc+1)-3):(3*(nc+1)),:]=self.F[f,1:].reshape((3,1))
+            for f in range(self.num_fuerzas):
+                nc=self.F[f,0].astype(int)-1
+                reacciones[(2*(nc+1)-2):(2*(nc+1)),:]=self.F[f,1:-1].reshape((2,1))
+        else:
+            reacciones=np.zeros((3*self.num_nodos,1))
+
+            for f in range(self.F.shape[0]):
+                nc=self.F[f,0].astype(int)-1
+                reacciones[(3*(nc+1)-3):(3*(nc+1)),:]=self.F[f,1:].reshape((3,1))
+
 
         Fe=reacciones[np.ix_(nodos_libres)]
 
@@ -230,11 +245,11 @@ class Reticulado():
 
         reacc_F=np.dot(Kvl,u_F)
         reacc_N=Nv+np.dot(Kvl,u_N)
-
+#Insercion de valores de nodos libres en posiciones  de martiz global de desplazamientos
         if self.dim ==2:
             U_F=np.zeros((self.num_nodos,2))
             U_N=np.zeros((self.num_nodos,2))
-            #Insercion de valores de nodos libres en posiciones  de martiz global de desplazamientos
+
             for nodo in range(len(nodos_libres)):
                 n_in=nodos_libres[nodo]
                 row=np.floor((n_in)/2).astype(int)
@@ -245,7 +260,7 @@ class Reticulado():
             U_F=np.zeros((self.num_nodos,3))
             U_N=np.zeros((self.num_nodos,3))
 
-            #Insercion de valores de nodos libres en posiciones  de martiz global de desplazamientos
+
             for nodo in range(len(nodos_libres)):
                 n_in=nodos_libres[nodo]
                 row=np.floor((n_in)/3).astype(int)
@@ -270,18 +285,33 @@ class Reticulado():
         R_F=np.zeros((self.R.shape[0],4))
         R_N=np.zeros((self.R.shape[0],4))
         pos=0
-        for row in range(self.R.shape[0]):
-            r_F=np.zeros((1,3))
-            r_N=np.zeros((1,3))
-            for col in range(1,4):
-                if self.R[row,col] == 1:
-                    r_F[0,col-1]=reacc_F[pos]
-                    r_N[0,col-1]=reacc_N[pos]
-                    pos+=1
-            temp_rf=np.insert(r_F,0,self.R[row,0])
-            temp_rn=np.insert(r_N,0,self.R[row,0])
-            R_F[row,:]=temp_rf
-            R_N[row,:]=temp_rn
+        if self.dim==2:
+            for row in range(self.R.shape[0]):
+                r_F=np.zeros((1,2))
+                r_N=np.zeros((1,2))
+                for col in range(1,3):
+                    if self.R[row,col] == 1:
+                        r_F[0,col-1]=reacc_F[pos]
+                        r_N[0,col-1]=reacc_N[pos]
+                        pos+=1
+                temp_rf=np.insert(r_F,0,self.R[row,0])
+                temp_rn=np.insert(r_N,0,self.R[row,0])
+                R_F[row,:]=np.insert(temp_rf,-1,0)
+                R_N[row,:]=np.insert(temp_rn,-1,0)
+
+        else:
+            for row in range(self.R.shape[0]):
+                r_F=np.zeros((1,3))
+                r_N=np.zeros((1,3))
+                for col in range(1,4):
+                    if self.R[row,col] == 1:
+                        r_F[0,col-1]=reacc_F[pos]
+                        r_N[0,col-1]=reacc_N[pos]
+                        pos+=1
+                temp_rf=np.insert(r_F,0,self.R[row,0])
+                temp_rn=np.insert(r_N,0,self.R[row,0])
+                R_F[row,:]=temp_rf
+                R_N[row,:]=temp_rn
 
         self.Reac=np.zeros((self.R.shape[0],7))
         self.Reac[:,:4]=R_F
@@ -317,7 +347,7 @@ class Reticulado():
 
         return self.S,self.Reac,self.U
 
-    def graficar(self,opcion='estructura',dim=2,escala=10.0):
+    def graficar(self,opcion='estructura',dim=2,escala=10.0,guardar=None):
         #obtencion de coordenadas de nodos
         if dim==2:
             if opcion=='estructura':
@@ -377,3 +407,7 @@ class Reticulado():
                 ax.set_xlim(-10,np.max(self.C[:,0])+10)
                 ax.set_ylim(-5,np.max(self.C[:,1])+10)
                 plt.show()
+
+        if guardar != None:
+            filename=guardar+'.png'
+            fig.savefig(filename)

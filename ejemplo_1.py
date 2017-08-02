@@ -10,6 +10,6 @@ ejemplo=Reticulado()
 
 ejemplo.cargar_csv(directorio='datos/ejemplo_1')
 
-S,R,U=ejemplo.rigidez()
+S,R,U=ejemplo.analizar()
 
-ejemplo.graficar(opcion='deformada',escala=20)
+ejemplo.graficar(opcion='deformada',escala=3,guardar='ejemplo1')
