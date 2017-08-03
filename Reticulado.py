@@ -2,16 +2,16 @@
 """
 Created on Tue Aug  1 16:28:44 2017
 
-@author: Jose Manuel
+@author: Jose Manuel Vera Aray
 """
+import os
 import numpy as np
 import pandas as pd
-import sympy
-from scipy.linalg import lu
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
-import os
+import matplotlib as mpl
+from mpl_toolkits.mplot3d import Axes3D
 
 class Reticulado():
 
@@ -119,6 +119,7 @@ class Reticulado():
         #Se determina matriz de rigidez global
         elementos_Dict={}
         for elem in range(self.E.shape[0]):
+
             barra=self.E[elem,:]
             elementos_Dict[elem]={}
 
@@ -230,18 +231,9 @@ class Reticulado():
 
         Fe=reacciones[np.ix_(nodos_libres)]
 
-        #print(linalg.det(Kll))
+
         u_F=np.linalg.lstsq(Kll,Fe)[0]
         u_N=np.linalg.lstsq(-Kll,Nl)[0]
-        #u_F=linalg.inv(Kll).dot(Fe)
-        #u_F=sympy.Matrix(np.concatenate((Kll,Fe),axis=1)).rref()
-        #u_N=sympy.Matrix(np.concatenate((-Kll,Nl),axis=1)).rref()
-
-
-#        pl_1,u_F_exp=lu(np.concatenate((Kll,Fe),axis=1),permute_l=True)
-#        u_F=u_F_exp[:,:Kll.shape[1]]
-#        pl_2,u_N_exp=lu(np.concatenate((-Kll,Nl),axis=1),permute_l=True)
-#        u_N=u_N_exp[:,:Kll.shape[1]]
 
         reacc_F=np.dot(Kvl,u_F)
         reacc_N=Nv+np.dot(Kvl,u_N)
@@ -368,8 +360,8 @@ class Reticulado():
                 ax = fig.add_subplot(111)
                 patch = patches.PathPatch(path,fill=False, lw=2, joinstyle='round')
                 ax.add_patch(patch)
-                ax.set_xlim(-10,np.max(self.C[:,0])+10)
-                ax.set_ylim(-5,np.max(self.C[:,1])+10)
+                ax.set_xlim(np.min(self.C[:,0])-10,np.max(self.C[:,0])+10)
+                ax.set_ylim(np.min(self.C[:,1])-10,np.max(self.C[:,1])+10)
                 plt.show()
             elif opcion=='deformada':
 
@@ -404,8 +396,71 @@ class Reticulado():
                 patch_2 = patches.PathPatch(path_2,fill=False, lw=1, color='r',linestyle='--' )
                 ax.add_patch(patch_1)
                 ax.add_patch(patch_2)
-                ax.set_xlim(-10,np.max(self.C[:,0])+10)
-                ax.set_ylim(-5,np.max(self.C[:,1])+10)
+                ax.set_xlim(np.min(self.C[:,0])-10,np.max(self.C[:,0])+10)
+                ax.set_ylim(np.min(self.C[:,1])-10,np.max(self.C[:,1])+10)
+                plt.show()
+        else:
+            if opcion=='estructura':
+                fig = plt.figure()
+                ax = fig.gca(projection='3d')
+                for elem in range(self.E.shape[0]):
+                    x=[]
+                    y=[]
+                    z=[]
+                    ni=self.E[elem,0].astype(int)-1
+                    nj=self.E[elem,1].astype(int)-1
+                    x.append(self.C[ni,0])
+                    x.append(self.C[nj,0])
+                    y.append(self.C[ni,1])
+                    y.append(self.C[nj,1])
+                    z.append(self.C[ni,2])
+                    z.append(self.C[nj,2])
+                    ax.set_xlim(np.min(self.C[:,0])-10,np.max(self.C[:,0])+10)
+                    ax.set_ylim(np.min(self.C[:,1])-10,np.max(self.C[:,1])+10)
+                    ax.set_zlim(np.min(self.C[:,2])-10,np.max(self.C[:,2])+10)
+                    ax.plot(x, y, z,color='b')
+                ax.view_init(60, -60)
+                plt.show()
+
+
+            elif opcion=='deformada':
+
+                fig = plt.figure()
+                ax = fig.gca(projection='3d')
+                for elem in range(self.E.shape[0]):
+                    x=[]
+                    y=[]
+                    z=[]
+                    x_def=[]
+                    y_def=[]
+                    z_def=[]
+                    ni=self.E[elem,0].astype(int)-1
+                    nj=self.E[elem,1].astype(int)-1
+
+                    cix=self.C[ni,0]+(self.U[ni,0]+self.U[ni,3])*float(escala)
+                    ciy=self.C[ni,1]+(self.U[ni,1]+self.U[ni,4])*float(escala)
+                    ciz=self.C[ni,2]+(self.U[ni,2]+self.U[ni,5])*float(escala)
+                    cjx=self.C[nj,0]+(self.U[nj,0]+self.U[nj,3])*float(escala)
+                    cjy=self.C[nj,1]+(self.U[nj,1]+self.U[nj,4])*float(escala)
+                    cjz=self.C[nj,2]+(self.U[nj,2]+self.U[nj,5])*float(escala)
+                    x.append(self.C[ni,0])
+                    x.append(self.C[nj,0])
+                    y.append(self.C[ni,1])
+                    y.append(self.C[nj,1])
+                    z.append(self.C[ni,2])
+                    z.append(self.C[nj,2])
+                    x_def.append(cix)
+                    x_def.append(cjx)
+                    y_def.append(ciy)
+                    y_def.append(cjy)
+                    z_def.append(ciz)
+                    z_def.append(cjz)
+                    ax.set_xlim(np.min(self.C[:,0])-10,np.max(self.C[:,0])+10)
+                    ax.set_ylim(np.min(self.C[:,1])-10,np.max(self.C[:,1])+10)
+                    ax.set_zlim(np.min(self.C[:,2])-10,np.max(self.C[:,2])+10)
+                    ax.plot(x, y, z,color='b')
+                    ax.plot(x_def, y_def, z_def,color='r',linestyle='--')
+                ax.view_init(60, -70)
                 plt.show()
 
         if guardar != None:

@@ -2,7 +2,7 @@
 """
 Created on Wed Aug  2 17:01:26 2017
 
-@author: Jose Manuel
+@author: Jose Manuel Vera Aray
 """
 
 from Reticulado import *
