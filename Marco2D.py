@@ -5,7 +5,7 @@ Created on Sun Aug  6 19:24:29 2017
 @author: Jose Manuel
 """
 
-mport os
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -50,7 +50,7 @@ class Marco2D():
         if directorio==None:
             print('Error, indique directorio donde se encuentran los archivos de datos')
         else:
-            files=['C.csv','E.csv','R.csv','F.csv','dT.csv']
+            files=['C.csv','E.csv','R.csv','F.csv','Q.csv']
             for file in files:
                 filename=os.path.join(directorio, file)
                 if file=='C.csv':
@@ -77,32 +77,14 @@ class Marco2D():
                         np.resize(self.F,(1,temp.shape[0]))
                         self.F=temp.reshape((1,self.F.shape[1]))
                         self.num_fuerzas=1
-                elif file=='dT.csv':
+                elif file=='Q.csv':
                     temp=np.genfromtxt(filename, delimiter=';',dtype=np.float_)
-                    np.resize(self.dT,(temp.shape[0],))
-                    self.dT=temp
+                    np.resize(self.Q,(temp.shape[0],))
+                    self.Q=temp
+
         self.num_nodos=self.C.shape[0]
         self.num_elem=self.E.shape[0]
 
-    def get_summary(self):
-        df_C=pd.DataFrame(data=self.C,
-                          index=np.linspace(1,self.C.shape[0],self.C.shape[0]).astype(int),
-                                            columns=['x','y','z'])
-        df_E=pd.DataFrame(data=self.E,
-                          index=np.linspace(1,self.E.shape[0],self.E.shape[0]).astype(int),
-                          columns=['Nodo Inicial','Nodo Final','Area','Elasticidad','Coef. Dilatacion'])
-
-        df_R=pd.DataFrame(data=self.R,
-                          index=np.linspace(1,self.R.shape[0],self.R.shape[0]).astype(int),
-                          columns=['Nodo','dx','dy','dz'])
-
-        df_F=pd.DataFrame(data=self.F,
-                          index=np.linspace(1,self.F.shape[0],self.F.shape[0]).astype(int),
-                          columns=['Nodo','Fjx','Fjy','Fjz'])
-
-        df_dt=pd.DataFrame(data=self.dT,
-                          index=np.linspace(1,self.dT.shape[0],self.dT.shape[0]).astype(int),
-                          columns=['dT'])
 
     def analizar(self):
         """ Retorna
@@ -114,8 +96,8 @@ class Marco2D():
             u=Matriz de desplazamientos nodales [uF,uT](numero nodos,6)
             """
 
-            self.Kext=np.zeros((2*self.num_nodos,2*self.num_nodos))
-            self.Next=np.zeros((2*self.num_nodos,1))
+        self.Kext=np.zeros((3*self.num_nodos,3*self.num_nodos))
+        self.Next=np.zeros((3*self.num_nodos,1))
 
 
         #Se determina matriz de rigidez global
@@ -137,16 +119,18 @@ class Marco2D():
             E=barra[4].astype(np.float_)
             G=barra[5].astype(np.float_)
 
-            q=self.Q[elem,0]
+            q=self.Q[elem]
 
-            phi=self.k(*12*E*I/(G*A*L^2))*self.corte;
+            phi=self.k*(12*E*I/(G*A*L**2))*self.corte;
             klocal=np.array([[E*A/L, 0, 0, -E*A/L, 0, 0],
-                    [0, 12*E*I/((1+phi)*L^3), 6*E*I/((1+phi)*L^2), 0, -12*E*I/((1+phi)*L^3), 6*E*I/((1+phi)*L^2)],
-                    [0 6*E*I/((1+phi)*L^2), (4+phi)*E*I/((1+phi)*L), 0, -6*E*I/((1+phi)*L^2), (2-phi)*E*I/((1+phi)*L)],
+                    [0, 12*E*I/((1+phi)*L**3), 6*E*I/((1+phi)*L**2), 0, -12*E*I/((1+phi)*L**3), 6*E*I/((1+phi)*L**2)],
+                    [0, 6*E*I/((1+phi)*L**2), (4+phi)*E*I/((1+phi)*L), 0, -6*E*I/((1+phi)*L**2), (2-phi)*E*I/((1+phi)*L)],
                     [-E*A/L, 0, 0, E*A/L, 0, 0],
-                    [0, -12*E*I/((1+phi)*L^3), -6*E*I/((1+phi)*L^2), 0, 12*E*I/((1+phi)*L^3), -6*E*I/((1+phi)*L^2)],
-                    [0, 6*E*I/((1+phi)*L^2), (2-phi)*E*I/((1+phi)*L), 0, -6*E*I/((1+phi)*L^2), (4+phi)*E*I/((1+phi)*L)]])
-            nlocal=np.array([0, 12*q*L, 12*q*L^2, 0, 12*q*L, -12*q*L^2]).T
+                    [0, -12*E*I/((1+phi)*L**3), -6*E*I/((1+phi)*L**2), 0, 12*E*I/((1+phi)*L**3), -6*E*I/((1+phi)*L**2)],
+                    [0, 6*E*I/((1+phi)*L**2), (2-phi)*E*I/((1+phi)*L), 0, -6*E*I/((1+phi)*L**2), (4+phi)*E*I/((1+phi)*L)]])
+
+
+            nlocal=np.array([0, 12*q*L, 12*q*L**2, 0, 12*q*L, -12*q*L**2]).T
 
             Transf=np.array([[d[0],d[1],0,0,0,0],
                          [-d[1],d[0],0,0,0,0],
@@ -154,6 +138,7 @@ class Marco2D():
                          [0, 0, 0, d[0],d[1], 0],
                          [0, 0, 0, -d[1], d[0], 0],
                          [0,0,0,0,0, 1]])
+
             Ext=np.zeros((6,3*self.num_nodos))
             Ext[:3,(3*(ni+1)-3):(3*(ni+1))]=np.identity(3)
             Ext[3:,(3*(nj+1)-3):(3*(nj+1))]=np.identity(3)
@@ -170,8 +155,16 @@ class Marco2D():
             elementos_Dict[elem]['klocal']=klocal
             elementos_Dict[elem]['nlocal']=nlocal
             elementos_Dict[elem]['Ext']=Ext
-            self.Kext=self.Kext+np.dot(Ext.T,np.dot(kglobal,Ext))
-            self.Next=np.add(self.Next,np.dot(Ext.T,Nglobal))
+
+
+            part_1=np.dot(Transf,Ext) #6x6 x 6x30 =6x30
+            part_2=np.dot(kglobal,part_1) #6x6 x 6x30 = 6x30
+            part_3=np.dot(Transf.T,part_2) #6x30
+
+            self.Kext=self.Kext+np.dot(Ext.T,part_3) #6x6
+            part_4=np.dot(Ext.T,np.dot(Transf.T,Nglobal)).reshape((30,1))
+            self.Next=np.add(self.Next,part_4)
+
 
 
         #Se crean las sub-matrices K_ll, K_lv, K_vv
@@ -179,32 +172,18 @@ class Marco2D():
         nodos_libres=[]
         lista_nodosrestringidos=self.R[:,0].astype(int)
         row=0
-        if self.dim==2:
-            for nodo in range(self.num_nodos):
-                if nodo+1 in lista_nodosrestringidos:
-                    for dim in range(1,3):
-                        if self.R[row,dim] == 1:
-                            nodos_restringidos.append((nodo)*2+dim-1)
-                        else:
-                            nodos_libres.append((nodo)*2+dim-1)
-                    row +=1
-                else:
-                    for dim in range(1,3):
-                        nodos_libres.append(nodo*2+dim-1)
 
-        else:
-
-            for nodo in range(self.num_nodos):
-                if nodo+1 in lista_nodosrestringidos:
-                    for dim in range(1,4):
-                        if self.R[row,dim] == 1:
-                            nodos_restringidos.append((nodo)*3+dim-1)
-                        else:
-                            nodos_libres.append((nodo)*3+dim-1)
-                    row +=1
-                else:
-                    for dim in range(1,4):
-                        nodos_libres.append(nodo*3+dim-1)
+        for nodo in range(self.num_nodos):
+            if nodo+1 in lista_nodosrestringidos:
+                for dim in range(1,4):
+                    if self.R[row,dim] == 1:
+                        nodos_restringidos.append((nodo)*3+dim-1)
+                    else:
+                        nodos_libres.append((nodo)*3+dim-1)
+                row +=1
+            else:
+                for dim in range(1,4):
+                    nodos_libres.append(nodo*3+dim-1)
 
         Kll=self.Kext[np.ix_(nodos_libres,nodos_libres)]
         Klv=self.Kext[np.ix_(nodos_libres,nodos_restringidos)]
@@ -213,3 +192,61 @@ class Marco2D():
 
         Nl=self.Next[np.ix_(nodos_libres)]
         Nv=self.Next[np.ix_(nodos_restringidos)]
+
+        reacciones=np.zeros((3*self.num_nodos,1))
+
+        for f in range(self.F.shape[0]):
+            nc=self.F[f,0].astype(int)-1
+            reacciones[(3*(nc+1)-3):(3*(nc+1)),:]=self.F[f,1:].reshape((3,1))
+
+        Fe=reacciones[np.ix_(nodos_libres)]+Nl
+
+        u_F=np.linalg.solve(Kll,Fe)
+        u_N=np.linalg.solve(-Kll,Fe)
+
+        reacc_F=np.dot(Kvl,u_F)
+        reacc_N=Nv+np.dot(Kvl,u_N)
+
+        self.U=np.zeros((self.num_nodos,3))
+
+        for nodo in range(len(nodos_libres)):
+            n_in=nodos_libres[nodo]
+            row=np.floor((n_in)/3).astype(int)
+            col=n_in-3*row
+            self.U[row,col]=u_F[nodo]+u_N[nodo]
+
+        self.Reac=np.zeros((self.R.shape[0],4))
+        actual_reac = 0
+        for row in range( self.R.shape[0]):
+            r = np.zeros((1,3))
+            for column in range(1,4):
+                if self.R[row, column]== 1:
+                    r[0,column - 1] = reacc_N[actual_reac,0]
+                    actual_reac = actual_reac + 1
+            union=np.insert(r,0,self.R[row,0])
+
+            self.Reac[row, :] = union
+
+        r=np.zeros((3*self.num_nodos,1))
+        r[np.ix_(nodos_libres)]=u_F
+
+
+        self.S=np.zeros((self.num_elem,6))
+        for elem in range(self.E.shape[0]):
+            A=elementos_Dict[elem]['A']
+            E=elementos_Dict[elem]['E']
+            L=elementos_Dict[elem]['L']
+            I=elementos_Dict[elem]['I']
+            G=elementos_Dict[elem]['G']
+            Transf=elementos_Dict[elem]['T']
+            klocal=elementos_Dict[elem]['klocal']
+            nlocal=elementos_Dict[elem]['nlocal']
+            Ext=elementos_Dict[elem]['Ext']
+
+            v_F=np.dot(Transf,np.dot(Ext,r))    #desplazamientos axiales de los nodos de la barra en ejes locales
+
+
+            self.S[elem,:]=np.add(np.dot(klocal,v_F).T,nlocal)
+
+        return self.S,self.Reac,self.U
+
